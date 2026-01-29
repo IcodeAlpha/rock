@@ -1,6 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client'; // ← Update this to your correct path
 
 interface AuthContextType {
   user: User | null;
@@ -24,6 +24,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserOrgAndRole = async (userId: string) => {
     try {
+      console.log('🔍 Fetching org for user:', userId);
+      
       const { data, error } = await supabase
         .from('organization_members')
         .select('organization_id, role')
@@ -31,28 +33,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching org membership:', error);
+        console.error('❌ Error fetching org membership:', error);
         return;
       }
 
       if (data) {
+        console.log('✅ Found org:', data.organization_id, 'Role:', data.role);
         setOrganizationId(data.organization_id);
         setUserRole(data.role as 'admin' | 'analyst' | 'viewer');
+      } else {
+        console.log('⚠️ No organization found for user');
       }
     } catch (err) {
-      console.error('Error in fetchUserOrgAndRole:', err);
+      console.error('❌ Error in fetchUserOrgAndRole:', err);
     }
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('🔐 Auth state changed:', event);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Defer Supabase calls with setTimeout
         if (session?.user) {
           setTimeout(() => {
             fetchUserOrgAndRole(session.user.id);
@@ -64,7 +68,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -80,9 +83,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string, fullName: string, orgName: string) => {
     try {
+      console.log('📝 Starting signup for:', email);
       const redirectUrl = `${window.location.origin}/`;
 
       // STEP 1: Sign up the user
+      console.log('👤 Creating user account...');
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -95,33 +100,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (authError) {
-        console.error('Auth error:', authError);
+        console.error('❌ Auth error:', authError);
+        alert(`Auth Error: ${authError.message}`); // TEMPORARY: Show error to user
         return { error: authError };
       }
 
       if (!authData.user || !authData.session) {
+        console.error('❌ No user or session returned');
+        alert('No user or session created'); // TEMPORARY
         return { error: new Error('Failed to create user session') };
       }
 
-      console.log('User created successfully:', authData.user.id);
+      console.log('✅ User created:', authData.user.id);
+      console.log('✅ Session created:', authData.session.access_token.substring(0, 20) + '...');
 
-      // STEP 2: Wait for profile trigger to complete (CRITICAL!)
-      console.log('Waiting for profile creation...');
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Increased to 2 seconds
+      // STEP 2: Wait for profile trigger
+      console.log('⏳ Waiting 2 seconds for profile trigger...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('✅ Wait complete');
 
-      // STEP 3: Create organization slug
+      // STEP 3: Create organization
       const orgSlug = orgName
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '')
         .substring(0, 50);
-
-      // Add timestamp to ensure uniqueness
       const uniqueSlug = `${orgSlug}-${Date.now().toString(36)}`;
 
-      console.log('Creating organization:', { name: orgName, slug: uniqueSlug });
+      console.log('🏢 Creating organization:', { name: orgName, slug: uniqueSlug });
 
-      // STEP 4: Create the organization
       const { data: orgData, error: orgError } = await supabase
         .from('organizations')
         .insert({ 
@@ -132,32 +139,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
 
       if (orgError) {
-        console.error('Organization creation error:', {
+        console.error('❌ Organization error:', orgError);
+        console.error('Error details:', {
           message: orgError.message,
           details: orgError.details,
           hint: orgError.hint,
           code: orgError.code
         });
-
-        // Better error messages based on error code
-        if (orgError.code === '42501') {
-          return { error: new Error('Permission denied. Please try signing in again.') };
-        } else if (orgError.code === '23505') {
-          return { error: new Error('Organization name already exists. Please choose another.') };
-        } else if (orgError.code === '23503') {
-          return { error: new Error('User profile not ready. Please try again.') };
-        }
+        
+        // TEMPORARY: Show full error to user
+        alert(`Organization Error (${orgError.code}): ${orgError.message}\n\nDetails: ${orgError.details}\nHint: ${orgError.hint}`);
         
         return { error: new Error(`Failed to create organization: ${orgError.message}`) };
       }
 
       if (!orgData) {
+        console.error('❌ No org data returned');
+        alert('Organization created but no data returned');
         return { error: new Error('Organization created but no data returned') };
       }
 
-      console.log('Organization created:', orgData.id);
+      console.log('✅ Organization created:', orgData.id);
 
-      // STEP 5: Add user as admin of the organization
+      // STEP 4: Add user as admin
+      console.log('👥 Adding user to organization as admin...');
       const { error: memberError } = await supabase
         .from('organization_members')
         .insert({
@@ -167,25 +172,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
 
       if (memberError) {
-        console.error('Member creation error:', {
+        console.error('❌ Member error:', memberError);
+        console.error('Error details:', {
           message: memberError.message,
           details: memberError.details,
           hint: memberError.hint,
           code: memberError.code
         });
         
+        // TEMPORARY: Show error
+        alert(`Member Error (${memberError.code}): ${memberError.message}\n\nDetails: ${memberError.details}`);
+        
         return { error: new Error(`Failed to add user to organization: ${memberError.message}`) };
       }
 
-      console.log('User added to organization as admin');
+      console.log('✅ User added to organization as admin');
+      console.log('🎉 Signup complete!');
 
-      // STEP 6: Update local state immediately
+      // STEP 5: Update local state
       setOrganizationId(orgData.id);
       setUserRole('admin');
 
       return { error: null };
     } catch (err) {
-      console.error('Unexpected signup error:', err);
+      console.error('❌ Unexpected error:', err);
+      alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
       return { error: err as Error };
     }
   };
