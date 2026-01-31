@@ -42,7 +42,7 @@ const Auth = () => {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/');
+      navigate('/app');
     }
   }, [user, loading, navigate]);
 
@@ -144,7 +144,7 @@ const Auth = () => {
               </Alert>
             )}
             
-            <Tabs defaultValue="login" className="w-full">
+            <Tabs defaultValue="signup" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -196,7 +196,7 @@ const Auth = () => {
                     <Input
                       id="fullName"
                       type="text"
-                      placeholder="John Doe"
+                      placeholder="Jewel Doe"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       required
