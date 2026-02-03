@@ -1,0 +1,48 @@
+# Create .gitignore in rock-psoc-data-pipeline
+cd C:\Users\PC\rock\rock-psoc-data-pipeline
+```
+
+Then create a `.gitignore` file with this:
+```
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Data files (don't commit large datasets)
+*.csv
+*.xlsx
+*.json
+*.parquet
+*.db
+*.sqlite
+data/
+raw_data/
+processed_data/
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
