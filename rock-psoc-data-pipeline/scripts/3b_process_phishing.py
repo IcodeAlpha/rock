@@ -294,3 +294,4 @@ if threats:
             print(f"      {severity}: {severity_counts[severity]}")
 
 print("\n✅ Ready for ML training!")
+print("   Next: Run 4_train_intrusion_detection.py")
