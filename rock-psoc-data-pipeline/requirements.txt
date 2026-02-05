@@ -3,3 +3,22 @@ requests==2.31.0
 python-dotenv==1.0.0
 supabase==1.0.4
 openpyxl==3.1.2
+
+# Machine Learning - Traditional
+scikit-learn
+xgboost
+imbalanced-learn
+joblib
+
+# Deep Learning - Neural Networks ✅ NEW
+tensorflow
+keras
+torch  # PyTorch alternative
+
+# Visualization & Evaluation
+matplotlib
+seaborn
+plotly
+
+# Model Tracking (Optional but recommended)
+mlflow
