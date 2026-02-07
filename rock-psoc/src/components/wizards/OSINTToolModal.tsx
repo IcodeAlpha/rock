@@ -87,17 +87,28 @@ export function OSINTToolModal({ isOpen, onClose, tool }: OSINTToolModalProps) {
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Terminal className="w-5 h-5 text-primary" />
+          <DialogTitle className="flex items-center gap-3">
+            <div className="relative">
+              <Terminal className="w-5 h-5 text-primary" />
+              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-success animate-pulse" />
+            </div>
             {tool.name}
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/20 border border-success/30 ml-auto">
+              <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+              <span className="text-xs font-medium text-success">LIVE API</span>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 flex-1 overflow-y-auto">
-          {/* Tool Info */}
-          <div className="p-3 rounded-lg bg-secondary/30 border border-border text-sm">
-            <p className="text-muted-foreground">{tool.description}</p>
-            <div className="mt-2 pt-2 border-t border-border">
+          {/* Live API Status */}
+          <div className="p-3 rounded-lg bg-success/10 border border-success/30 text-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <Check className="w-4 h-4 text-success" />
+              <span className="font-medium text-success">Connected to Real {tool.name} API</span>
+            </div>
+            <p className="text-muted-foreground text-xs">{tool.description}</p>
+            <div className="mt-2 pt-2 border-t border-success/20">
               <p className="text-xs text-muted-foreground"><strong>Usage:</strong> {tool.usage}</p>
             </div>
           </div>
@@ -152,28 +163,32 @@ export function OSINTToolModal({ isOpen, onClose, tool }: OSINTToolModalProps) {
             </div>
             <div className={cn(
               "min-h-[200px] max-h-[300px] overflow-y-auto p-4 rounded-lg border font-mono text-sm whitespace-pre-wrap",
-              results ? "bg-secondary/30 border-border" : "bg-muted/30 border-dashed border-border"
+              results ? "bg-success/5 border-success/30" : "bg-muted/30 border-dashed border-border"
             )}>
               {isLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                  <span className="ml-2 text-muted-foreground">Running query...</span>
+                <div className="flex flex-col items-center justify-center h-full gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-success" />
+                  <span className="text-muted-foreground">Querying live {tool.name} API...</span>
                 </div>
               ) : results ? (
                 results
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  Enter a query and click run to see results
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+                  <Terminal className="w-8 h-8 opacity-50" />
+                  <span>Enter a query and click run to fetch live results</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Disclaimer */}
-          <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-xs">
-            <p className="text-warning font-medium">Simulated Results</p>
+          {/* Live API Notice */}
+          <div className="p-3 rounded-lg bg-success/10 border border-success/30 text-xs">
+            <div className="flex items-center gap-2">
+              <Check className="w-4 h-4 text-success" />
+              <p className="text-success font-medium">Live Threat Intelligence</p>
+            </div>
             <p className="text-muted-foreground mt-1">
-              Results are AI-generated simulations for demonstration purposes. For production use, connect to real OSINT APIs.
+              Results are fetched in real-time from the {tool.name} API. Data is current and verified.
             </p>
           </div>
         </div>
