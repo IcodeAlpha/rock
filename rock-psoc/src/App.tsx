@@ -12,6 +12,7 @@ import Index from '@/pages/Index'
 import NotFound from '@/pages/NotFound'
 import Privacy from '@/pages/Privacy';
 import Terms from '@/pages/Terms'; 
+import { AcceptInvitePage } from '@/pages/AcceptInvitePage';
 
 const queryClient = new QueryClient()
 
@@ -29,6 +30,8 @@ const App = () => (
 
               {/* Public auth page - route: /auth */}
               <Route path="/auth" element={<Auth />} />
+
+              <Route path="/accept-invite" element={<AcceptInvitePage />} />
 
                <Route path="/privacy" element={<Privacy />} />  {/* NEW */}
               <Route path="/terms" element={<Terms />} />      {/* NEW */}
