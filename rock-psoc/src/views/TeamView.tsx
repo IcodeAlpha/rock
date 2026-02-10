@@ -17,8 +17,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import { 
   Users, UserPlus, Shield, Eye, Pencil, Trash2, Loader2, Crown, 
-  Mail, Clock, CheckCircle, XCircle, RefreshCw, Copy, AlertTriangle,
-  ShieldCheck, FileEdit, Search
+  Mail, Clock, CheckCircle, XCircle, RefreshCw, AlertTriangle,
+  FileEdit, Search
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -41,6 +41,7 @@ interface Invitation {
   email: string;
   role: AppRole;
   status: string;
+  token: string;
   created_at: string;
   expires_at: string;
   invited_by: string | null;
@@ -102,17 +103,15 @@ export function TeamView() {
   const [newRole, setNewRole] = useState<AppRole>('viewer');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch team members
+  // ─── Fetch team members ────────────────────────────────────────────────────
   const { data: members, isLoading: membersLoading } = useQuery({
     queryKey: ['team-members', organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
-      
       const { data, error } = await supabase
         .from('organization_members')
         .select('id, user_id, role, created_at')
         .eq('organization_id', organizationId);
-      
       if (error) throw error;
 
       const membersWithProfiles = await Promise.all(
@@ -122,53 +121,96 @@ export function TeamView() {
             .select('email, full_name, avatar_url')
             .eq('id', member.user_id)
             .single();
-          
           return { ...member, profile } as TeamMember;
         })
       );
-
       return membersWithProfiles;
     },
     enabled: !!organizationId
   });
 
-  // Fetch pending invitations
+  // ─── Fetch org name for email ──────────────────────────────────────────────
+  const { data: organization } = useQuery({
+    queryKey: ['organization', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return null;
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('name')
+        .eq('id', organizationId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organizationId
+  });
+
+  // ─── Fetch invitations ─────────────────────────────────────────────────────
   const { data: invitations, isLoading: invitationsLoading } = useQuery({
     queryKey: ['invitations', organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
-      
       const { data, error } = await supabase
         .from('invitations')
         .select('*')
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
-      
       if (error) throw error;
       return data as Invitation[];
     },
     enabled: !!organizationId && isAdmin
   });
 
-  // Create invitation mutation
+  // ─── Helper: send invite email via Edge Function ──────────────────────────
+  const sendInviteEmail = async (email: string, role: string, token: string) => {
+    try {
+      const inviterProfile = members?.find(m => m.user_id === user?.id)?.profile;
+      // Deep link into the app's accept-invite page with the secure token
+      const acceptUrl = `${window.location.origin}/accept-invite?token=${token}`;
+
+      const { error } = await supabase.functions.invoke('send-invite-email', {
+        body: {
+          email,
+          role,
+          invitedByName: inviterProfile?.full_name || inviterProfile?.email || 'A team admin',
+          organizationName: organization?.name || 'RockPSOC Organization',
+          acceptUrl,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Failed to send invite email:', err);
+      // Fire-and-forget: don't block the flow if email fails
+    }
+  };
+
+  // ─── Create invitation ─────────────────────────────────────────────────────
   const createInviteMutation = useMutation({
     mutationFn: async ({ email, role }: { email: string; role: AppRole }) => {
       if (!organizationId || !user) throw new Error('Missing organization or user');
-      
-      const { error } = await supabase
+      const trimmedEmail = email.toLowerCase().trim();
+
+      // Insert and return the generated token
+      const { data: invite, error } = await supabase
         .from('invitations')
         .insert({
           organization_id: organizationId,
-          email: email.toLowerCase().trim(),
+          email: trimmedEmail,
           role,
-          invited_by: user.id
-        });
-      
+          invited_by: user.id,
+        })
+        .select('token')
+        .single();
+
       if (error) throw error;
+
+      // Send email with the token-based accept link
+      await sendInviteEmail(trimmedEmail, role, invite.token);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invitations'] });
-      toast.success('Invitation created successfully');
+      toast.success('Invitation sent successfully');
       setInviteOpen(false);
       setInviteEmail('');
       setInviteRole('viewer');
@@ -182,14 +224,13 @@ export function TeamView() {
     }
   });
 
-  // Cancel invitation mutation
+  // ─── Cancel invitation ─────────────────────────────────────────────────────
   const cancelInviteMutation = useMutation({
     mutationFn: async (invitationId: string) => {
       const { error } = await supabase
         .from('invitations')
         .update({ status: 'cancelled' })
         .eq('id', invitationId);
-      
       if (error) throw error;
     },
     onSuccess: () => {
@@ -201,26 +242,30 @@ export function TeamView() {
     }
   });
 
-  // Resend invitation mutation
+  // ─── Resend invitation ─────────────────────────────────────────────────────
   const resendInviteMutation = useMutation({
     mutationFn: async (invitation: Invitation) => {
+      // Delete old record to reset the token and expiry
       const { error: deleteError } = await supabase
         .from('invitations')
         .delete()
         .eq('id', invitation.id);
-      
       if (deleteError) throw deleteError;
 
-      const { error: insertError } = await supabase
+      // Insert fresh invitation with a new token
+      const { data: newInvite, error: insertError } = await supabase
         .from('invitations')
         .insert({
           organization_id: organizationId,
           email: invitation.email,
           role: invitation.role,
-          invited_by: user?.id
-        });
-      
+          invited_by: user?.id,
+        })
+        .select('token')
+        .single();
       if (insertError) throw insertError;
+
+      await sendInviteEmail(invitation.email, invitation.role, newInvite.token);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invitations'] });
@@ -231,14 +276,13 @@ export function TeamView() {
     }
   });
 
-  // Update role mutation
+  // ─── Update role ───────────────────────────────────────────────────────────
   const updateRoleMutation = useMutation({
     mutationFn: async ({ memberId, role }: { memberId: string; role: AppRole }) => {
       const { error } = await supabase
         .from('organization_members')
         .update({ role })
         .eq('id', memberId);
-      
       if (error) throw error;
     },
     onSuccess: () => {
@@ -251,14 +295,13 @@ export function TeamView() {
     }
   });
 
-  // Remove member mutation
+  // ─── Remove member ─────────────────────────────────────────────────────────
   const removeMemberMutation = useMutation({
     mutationFn: async (memberId: string) => {
       const { error } = await supabase
         .from('organization_members')
         .delete()
         .eq('id', memberId);
-      
       if (error) throw error;
     },
     onSuccess: () => {
@@ -270,10 +313,10 @@ export function TeamView() {
     }
   });
 
+  // ─── Helpers ───────────────────────────────────────────────────────────────
   const getRoleBadge = (role: AppRole) => {
     const config = ROLE_PERMISSIONS[role];
     const Icon = config.icon;
-    
     return (
       <Badge variant={role === 'admin' ? 'default' : role === 'analyst' ? 'secondary' : 'outline'} className="capitalize flex items-center w-fit gap-1">
         <Icon className="w-3 h-3" />
@@ -284,23 +327,14 @@ export function TeamView() {
 
   const getStatusBadge = (status: string, expiresAt: string) => {
     const isExpired = new Date(expiresAt) < new Date();
-    
-    if (status === 'accepted') {
-      return <Badge variant="default" className="gap-1"><CheckCircle className="w-3 h-3" /> Accepted</Badge>;
-    }
-    if (status === 'cancelled') {
-      return <Badge variant="destructive" className="gap-1"><XCircle className="w-3 h-3" /> Cancelled</Badge>;
-    }
-    if (isExpired || status === 'expired') {
-      return <Badge variant="outline" className="gap-1 text-muted-foreground"><Clock className="w-3 h-3" /> Expired</Badge>;
-    }
+    if (status === 'accepted') return <Badge variant="default" className="gap-1"><CheckCircle className="w-3 h-3" /> Accepted</Badge>;
+    if (status === 'cancelled') return <Badge variant="destructive" className="gap-1"><XCircle className="w-3 h-3" /> Cancelled</Badge>;
+    if (isExpired || status === 'expired') return <Badge variant="outline" className="gap-1 text-muted-foreground"><Clock className="w-3 h-3" /> Expired</Badge>;
     return <Badge variant="secondary" className="gap-1"><Mail className="w-3 h-3" /> Pending</Badge>;
   };
 
   const getInitials = (name: string | null, email: string) => {
-    if (name) {
-      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    }
+    if (name) return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     return email.slice(0, 2).toUpperCase();
   };
 
@@ -332,7 +366,7 @@ export function TeamView() {
             {isAdmin ? 'Manage team members and their access levels' : 'View team members and their roles'}
           </p>
         </div>
-        
+
         {isAdmin && (
           <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
             <DialogTrigger asChild>
@@ -345,7 +379,7 @@ export function TeamView() {
               <DialogHeader>
                 <DialogTitle>Invite Team Member</DialogTitle>
                 <DialogDescription>
-                  Create an invitation for a new team member
+                  An email with a secure acceptance link will be sent to the invitee.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -357,6 +391,11 @@ export function TeamView() {
                     placeholder="colleague@company.com"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && inviteEmail) {
+                        createInviteMutation.mutate({ email: inviteEmail, role: inviteRole });
+                      }
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -373,7 +412,7 @@ export function TeamView() {
                             <div className="flex items-center gap-2">
                               <Icon className={`w-4 h-4 ${config.color}`} />
                               <span>{config.label}</span>
-                              <span className="text-muted-foreground">- {config.description}</span>
+                              <span className="text-muted-foreground">— {config.description}</span>
                             </div>
                           </SelectItem>
                         );
@@ -396,15 +435,13 @@ export function TeamView() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setInviteOpen(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={() => createInviteMutation.mutate({ email: inviteEmail, role: inviteRole })} 
+                <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={() => createInviteMutation.mutate({ email: inviteEmail, role: inviteRole })}
                   disabled={!inviteEmail || createInviteMutation.isPending}
                 >
                   {createInviteMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Create Invitation
+                  Send Invitation
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -414,61 +451,29 @@ export function TeamView() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-primary/10">
-                <Users className="w-6 h-6 text-primary" />
+        {[
+          { count: totalMembers, label: 'Total Members', icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
+          { count: adminCount, label: 'Admins', icon: Crown, color: ROLE_PERMISSIONS.admin.color, bg: ROLE_PERMISSIONS.admin.bgColor },
+          { count: analystCount, label: 'Analysts', icon: FileEdit, color: ROLE_PERMISSIONS.analyst.color, bg: ROLE_PERMISSIONS.analyst.bgColor },
+          { count: viewerCount, label: 'Viewers', icon: Eye, color: ROLE_PERMISSIONS.viewer.color, bg: ROLE_PERMISSIONS.viewer.bgColor },
+        ].map(({ count, label, icon: Icon, color, bg }) => (
+          <Card key={label}>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-lg ${bg}`}>
+                  <Icon className={`w-6 h-6 ${color}`} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{count}</p>
+                  <p className="text-sm text-muted-foreground">{label}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold">{totalMembers}</p>
-                <p className="text-sm text-muted-foreground">Total Members</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-lg ${ROLE_PERMISSIONS.admin.bgColor}`}>
-                <Crown className={`w-6 h-6 ${ROLE_PERMISSIONS.admin.color}`} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{adminCount}</p>
-                <p className="text-sm text-muted-foreground">Admins</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-lg ${ROLE_PERMISSIONS.analyst.bgColor}`}>
-                <FileEdit className={`w-6 h-6 ${ROLE_PERMISSIONS.analyst.color}`} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{analystCount}</p>
-                <p className="text-sm text-muted-foreground">Analysts</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-lg ${ROLE_PERMISSIONS.viewer.bgColor}`}>
-                <Eye className={`w-6 h-6 ${ROLE_PERMISSIONS.viewer.color}`} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{viewerCount}</p>
-                <p className="text-sm text-muted-foreground">Viewers</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Main Content with Tabs */}
+      {/* Tabs */}
       <Tabs defaultValue="members" className="space-y-4">
         <TabsList>
           <TabsTrigger value="members" className="gap-2">
@@ -487,7 +492,7 @@ export function TeamView() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Members Tab */}
+        {/* ── Members Tab ── */}
         <TabsContent value="members">
           <Card>
             <CardHeader>
@@ -556,15 +561,12 @@ export function TeamView() {
                           <TableCell className="text-right">
                             {member.user_id !== user?.id && (
                               <div className="flex items-center justify-end gap-2">
-                                <Dialog 
-                                  open={editingMember?.id === member.id} 
+                                {/* Change Role Dialog */}
+                                <Dialog
+                                  open={editingMember?.id === member.id}
                                   onOpenChange={(open) => {
-                                    if (open) {
-                                      setEditingMember(member);
-                                      setNewRole(member.role);
-                                    } else {
-                                      setEditingMember(null);
-                                    }
+                                    if (open) { setEditingMember(member); setNewRole(member.role); }
+                                    else setEditingMember(null);
                                   }}
                                 >
                                   <DialogTrigger asChild>
@@ -581,9 +583,7 @@ export function TeamView() {
                                     </DialogHeader>
                                     <div className="py-4 space-y-4">
                                       <Select value={newRole} onValueChange={(v) => setNewRole(v as AppRole)}>
-                                        <SelectTrigger>
-                                          <SelectValue />
-                                        </SelectTrigger>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                           {Object.entries(ROLE_PERMISSIONS).map(([role, config]) => {
                                             const Icon = config.icon;
@@ -598,7 +598,6 @@ export function TeamView() {
                                           })}
                                         </SelectContent>
                                       </Select>
-
                                       <div className={`p-3 rounded-lg ${ROLE_PERMISSIONS[newRole].bgColor}`}>
                                         <p className="text-sm font-medium mb-2">{ROLE_PERMISSIONS[newRole].label} permissions:</p>
                                         <ul className="text-sm text-muted-foreground space-y-1">
@@ -612,10 +611,8 @@ export function TeamView() {
                                       </div>
                                     </div>
                                     <DialogFooter>
-                                      <Button variant="outline" onClick={() => setEditingMember(null)}>
-                                        Cancel
-                                      </Button>
-                                      <Button 
+                                      <Button variant="outline" onClick={() => setEditingMember(null)}>Cancel</Button>
+                                      <Button
                                         onClick={() => updateRoleMutation.mutate({ memberId: member.id, role: newRole })}
                                         disabled={updateRoleMutation.isPending || newRole === member.role}
                                       >
@@ -625,7 +622,8 @@ export function TeamView() {
                                     </DialogFooter>
                                   </DialogContent>
                                 </Dialog>
-                                
+
+                                {/* Remove Member */}
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" title="Remove member">
@@ -664,20 +662,18 @@ export function TeamView() {
           </Card>
         </TabsContent>
 
-        {/* Invitations Tab */}
+        {/* ── Invitations Tab ── */}
         {isAdmin && (
           <TabsContent value="invitations">
             <div className="space-y-6">
-              {/* Pending Invitations */}
+              {/* Pending */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Mail className="w-5 h-5" />
                     Pending Invitations
                   </CardTitle>
-                  <CardDescription>
-                    Invitations waiting to be accepted
-                  </CardDescription>
+                  <CardDescription>Invitations waiting to be accepted</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {invitationsLoading ? (
@@ -714,8 +710,7 @@ export function TeamView() {
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-2">
                                 <Button
-                                  variant="ghost"
-                                  size="sm"
+                                  variant="ghost" size="sm"
                                   onClick={() => resendInviteMutation.mutate(invitation)}
                                   disabled={resendInviteMutation.isPending}
                                   title="Resend invitation"
@@ -723,8 +718,7 @@ export function TeamView() {
                                   <RefreshCw className="w-4 h-4" />
                                 </Button>
                                 <Button
-                                  variant="ghost"
-                                  size="sm"
+                                  variant="ghost" size="sm"
                                   className="text-destructive hover:text-destructive"
                                   onClick={() => cancelInviteMutation.mutate(invitation.id)}
                                   disabled={cancelInviteMutation.isPending}
@@ -742,7 +736,7 @@ export function TeamView() {
                 </CardContent>
               </Card>
 
-              {/* Past Invitations */}
+              {/* History */}
               {pastInvitations.length > 0 && (
                 <Card>
                   <CardHeader>
@@ -781,7 +775,7 @@ export function TeamView() {
           </TabsContent>
         )}
 
-        {/* Role Permissions Tab */}
+        {/* ── Role Permissions Tab ── */}
         <TabsContent value="roles">
           <div className="grid gap-6 md:grid-cols-3">
             {Object.entries(ROLE_PERMISSIONS).map(([role, config]) => {
@@ -804,9 +798,7 @@ export function TeamView() {
                           ) : (
                             <CheckCircle className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
                           )}
-                          <span className={perm.includes('Cannot') ? 'text-muted-foreground' : ''}>
-                            {perm}
-                          </span>
+                          <span className={perm.includes('Cannot') ? 'text-muted-foreground' : ''}>{perm}</span>
                         </li>
                       ))}
                     </ul>
