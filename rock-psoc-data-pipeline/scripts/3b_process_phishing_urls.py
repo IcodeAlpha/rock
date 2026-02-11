@@ -169,15 +169,15 @@ if 'label' in processed_df.columns:
     if len(phishing_df) == 0:
         phishing_df = processed_df[processed_df['label'] == -1]  # Try -1
     
-    sample_size = min(150, len(phishing_df))
+    sample_size = min(10000, len(phishing_df))
     if len(phishing_df) > 0:
         sample = phishing_df.sample(n=sample_size, random_state=42)
         print(f"   Found {len(phishing_df)} confirmed phishing URLs")
     else:
         print("   ⚠️  No confirmed phishing labels found, using statistical analysis...")
-        sample = processed_df.sample(n=min(150, len(processed_df)), random_state=42)
+        sample = processed_df.sample(n=min(10000, len(processed_df)), random_state=42)
 else:
-    sample = processed_df.sample(n=min(150, len(processed_df)), random_state=42)
+    sample = processed_df.sample(n=min(10000, len(processed_df)), random_state=42)
 
 # Create threat records
 for idx, row in sample.iterrows():
