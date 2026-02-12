@@ -1,9 +1,14 @@
 """
-Train Phishing URL Detection Models
+Train Phishing URL Detection Models - FIXED FOR OVERFITTING
 Script: 5_train_phishing_detection.py
 
 Tests 3 algorithms: Random Forest, XGBoost, and Neural Network
 Binary classification: Phishing vs Legitimate URLs
+
+CHANGES FROM ORIGINAL:
+- Added regularization to prevent 100% accuracy overfitting
+- Reduced max_depth, increased min_samples to force generalization
+- Added max_features to limit feature combinations
 """
 
 import pandas as pd
@@ -31,7 +36,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 print("=" * 70)
-print("PHISHING URL DETECTION MODEL TRAINING")
+print("PHISHING URL DETECTION MODEL TRAINING (REGULARIZED)")
 print("=" * 70)
 
 # ============================================
@@ -151,24 +156,31 @@ print(f"   Validation (NN): {X_val_nn.shape[0]} samples")
 results = {}
 
 # ============================================
-# MODEL 1: RANDOM FOREST
+# MODEL 1: RANDOM FOREST (WITH REGULARIZATION)
 # ============================================
 print("\n" + "=" * 70)
-print("MODEL 1: RANDOM FOREST")
+print("MODEL 1: RANDOM FOREST (REGULARIZED)")
 print("=" * 70)
 
 rf_model = RandomForestClassifier(
-    n_estimators=200,
-    max_depth=15,
-    min_samples_split=5,
-    min_samples_leaf=2,
+    n_estimators=100,        # Reduced from 200
+    max_depth=8,             # Reduced from 15 - PREVENTS OVERFITTING
+    min_samples_split=20,    # Increased from 5 - REQUIRES MORE DATA BEFORE SPLIT
+    min_samples_leaf=10,     # Increased from 2 - PREVENTS TINY LEAF NODES
+    max_features='sqrt',     # NEW - Only consider sqrt(n) features per split
     random_state=42,
     n_jobs=-1,
-    class_weight='balanced',  # Handle any class imbalance
+    class_weight='balanced',
     verbose=0
 )
 
-print("Training Random Forest (200 trees)...")
+print("Training Random Forest with regularization...")
+print("   Parameters:")
+print(f"      max_depth: 8 (prevents memorization)")
+print(f"      min_samples_split: 20 (requires more data before split)")
+print(f"      min_samples_leaf: 10 (prevents tiny leaves)")
+print(f"      max_features: sqrt (reduces feature combinations)")
+
 rf_model.fit(X_train, y_train)
 
 print("Evaluating...")
@@ -196,6 +208,13 @@ print(f"   Recall:    {rf_recall:.4f}")
 print(f"   F1-Score:  {rf_f1:.4f}")
 print(f"   AUC-ROC:   {rf_auc:.4f}")
 
+if rf_accuracy == 1.0:
+    print("\n   ⚠️  WARNING: Still achieving 100% accuracy!")
+    print("   Model may still be overfitted - consider:")
+    print("      - Reducing max_depth further")
+    print("      - Increasing min_samples_split/leaf")
+    print("      - Adding noise to training data")
+
 # Feature importance
 feature_importance = pd.DataFrame({
     'feature': X.columns,
@@ -207,21 +226,25 @@ for idx, row in feature_importance.head(5).iterrows():
     print(f"      {row['feature']}: {row['importance']:.4f}")
 
 # ============================================
-# MODEL 2: XGBOOST
+# MODEL 2: XGBOOST (WITH REGULARIZATION)
 # ============================================
 print("\n" + "=" * 70)
-print("MODEL 2: XGBOOST")
+print("MODEL 2: XGBOOST (REGULARIZED)")
 print("=" * 70)
 
 # Calculate scale_pos_weight for imbalanced data
 scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
 
 xgb_model = XGBClassifier(
-    n_estimators=200,
-    max_depth=8,
-    learning_rate=0.1,
+    n_estimators=100,        # Reduced from 200
+    max_depth=5,             # Reduced from 8 - PREVENTS OVERFITTING
+    learning_rate=0.05,      # Reduced from 0.1 - SLOWER, MORE CAREFUL LEARNING
     subsample=0.8,
     colsample_bytree=0.8,
+    min_child_weight=5,      # NEW - Requires minimum samples in leaf
+    gamma=1,                 # NEW - Minimum loss reduction for split
+    reg_alpha=0.1,           # NEW - L1 regularization
+    reg_lambda=1,            # NEW - L2 regularization
     scale_pos_weight=scale_pos_weight,
     random_state=42,
     eval_metric='logloss',
@@ -229,7 +252,14 @@ xgb_model = XGBClassifier(
     verbosity=0
 )
 
-print("Training XGBoost (200 boosting rounds)...")
+print("Training XGBoost with regularization...")
+print("   Parameters:")
+print(f"      max_depth: 5 (shallow trees)")
+print(f"      learning_rate: 0.05 (slower learning)")
+print(f"      min_child_weight: 5 (minimum samples per leaf)")
+print(f"      gamma: 1 (pruning threshold)")
+print(f"      reg_alpha: 0.1, reg_lambda: 1 (L1/L2 regularization)")
+
 xgb_model.fit(X_train, y_train, verbose=False)
 
 print("Evaluating...")
@@ -258,30 +288,30 @@ print(f"   F1-Score:  {xgb_f1:.4f}")
 print(f"   AUC-ROC:   {xgb_auc:.4f}")
 
 # ============================================
-# MODEL 3: NEURAL NETWORK
+# MODEL 3: NEURAL NETWORK (WITH REGULARIZATION)
 # ============================================
 print("\n" + "=" * 70)
-print("MODEL 3: NEURAL NETWORK")
+print("MODEL 3: NEURAL NETWORK (REGULARIZED)")
 print("=" * 70)
 
-# Build architecture
+# Build architecture with MORE dropout
 nn_model = keras.Sequential([
     layers.Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
     layers.BatchNormalization(),
-    layers.Dropout(0.3),
+    layers.Dropout(0.5),     # Increased from 0.3
     
     layers.Dense(32, activation='relu'),
     layers.BatchNormalization(),
-    layers.Dropout(0.2),
+    layers.Dropout(0.4),     # Increased from 0.2
     
     layers.Dense(16, activation='relu'),
-    layers.Dropout(0.2),
+    layers.Dropout(0.3),     # Increased from 0.2
     
     layers.Dense(1, activation='sigmoid')
 ], name='PhishingDetectionNN')
 
 nn_model.compile(
-    optimizer=keras.optimizers.Adam(learning_rate=0.001),
+    optimizer=keras.optimizers.Adam(learning_rate=0.0005),  # Reduced from 0.001
     loss='binary_crossentropy',
     metrics=['accuracy', tf.keras.metrics.AUC(name='auc')]
 )
@@ -289,6 +319,7 @@ nn_model.compile(
 print(f"\n🧠 Neural Network Architecture:")
 print(f"   Input: {X_train.shape[1]} features")
 print(f"   Hidden Layers: 64 → 32 → 16 neurons")
+print(f"   Dropout: 0.5 → 0.4 → 0.3 (HIGH regularization)")
 print(f"   Output: 1 neuron (sigmoid)")
 print(f"   Total Parameters: {nn_model.count_params():,}")
 
@@ -362,6 +393,14 @@ best_auc = results[best_model_name]['auc_roc']
 
 print(f"\n🏆 BEST MODEL: {best_model_name}")
 print(f"   AUC-ROC: {best_auc:.4f}")
+
+# Check for overfitting
+print(f"\n🔍 Overfitting Check:")
+for model_name, metrics in results.items():
+    if metrics['accuracy'] >= 0.99:
+        print(f"   ⚠️  {model_name}: {metrics['accuracy']:.4f} accuracy (likely overfit)")
+    else:
+        print(f"   ✅  {model_name}: {metrics['accuracy']:.4f} accuracy (reasonable)")
 
 # ============================================
 # 6. SAVE MODELS
@@ -451,9 +490,9 @@ print(f"   Samples: {len(df)}")
 print(f"   Features: {X.shape[1]}")
 print(f"   Task: Binary Classification")
 print(f"\n   Models Trained: 3")
-print(f"      ✓ Random Forest")
-print(f"      ✓ XGBoost")
-print(f"      ✓ Neural Network")
+print(f"      ✓ Random Forest (REGULARIZED)")
+print(f"      ✓ XGBoost (REGULARIZED)")
+print(f"      ✓ Neural Network (REGULARIZED)")
 print(f"\n   🏆 Best Model: {best_model_name} (AUC: {best_auc:.4f})")
 
 print(f"\n📁 Saved to:")
@@ -461,4 +500,4 @@ print(f"   models/saved_models/phishing_detection/")
 print(f"   models/preprocessors/")
 print(f"   models/evaluation/")
 
-print(f"\n✅ Next Step: Run 6_train_vulnerability_scoring.py")
+print(f"\n✅ Next Step: Restart API and test again")
