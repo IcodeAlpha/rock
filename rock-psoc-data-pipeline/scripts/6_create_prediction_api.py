@@ -255,6 +255,7 @@ class CyberSecurityPredictor:
         features : dict
             Feature name → numeric value pairs.
             Any missing feature defaults to 0.
+            Automatically remaps raw NSL-KDD names to ind_ prefix.
 
         Returns
         -------
@@ -266,7 +267,16 @@ class CyberSecurityPredictor:
         if self.intrusion_model is None:
             return {"error": "Intrusion detection model not loaded"}
 
-        X = self._to_array(features, self.intrusion_features)
+        # Auto-remap: if user sends "src_bytes" but model expects "ind_src_bytes", fix it
+        remapped_features = {}
+        for key, value in features.items():
+            # If key doesn't start with ind_ and ind_{key} exists in trained features, remap it
+            if not key.startswith('ind_') and f'ind_{key}' in self.intrusion_features:
+                remapped_features[f'ind_{key}'] = value
+            else:
+                remapped_features[key] = value
+        
+        X = self._to_array(remapped_features, self.intrusion_features)
         if self.intrusion_scaler:
             X = self.intrusion_scaler.transform(X)
 
@@ -281,17 +291,11 @@ class CyberSecurityPredictor:
                    if self.intrusion_le else [])
 
         severity_map = {
-            "Normal": "none",
-            "DoS": "high", "DDoS": "high",
-            "Probe": "medium",
-            "R2L": "high", "U2R": "critical",
+            "DDoS Attack": "high",
+            "Port Scan": "medium",
             "Other Attack": "medium",
         }
-        severity = "unknown"
-        for key, sev in severity_map.items():
-            if key.lower() in label.lower():
-                severity = sev
-                break
+        severity = severity_map.get(label, "unknown")
 
         return {
             "attack_type":   label,
