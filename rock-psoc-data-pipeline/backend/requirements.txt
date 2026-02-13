@@ -1,0 +1,19 @@
+# FastAPI Backend Dependencies
+
+# Core framework
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# HTTP client for ML API calls (compatible with supabase)
+httpx>=0.26,<0.28
+
+# Database
+supabase
+
+# Environment variables
+python-dotenv==1.0.1
+
+# Type hints
+typing-extensions==4.12.2
