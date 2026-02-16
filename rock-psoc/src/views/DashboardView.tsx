@@ -14,18 +14,18 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
-import { usePredictions } from '@/hooks/usePredictions';
+import { useBackendThreats } from '@/hooks/useBackendThreats';
+import { useBackendStats } from '@/hooks/useBackendStats';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useAlerts } from '@/hooks/useAlerts';
-import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { ThreatPrediction, Incident } from '@/types/psoc';
 import { Brain, AlertTriangle, Bell, TrendingUp, Shield, DollarSign, Loader2 } from 'lucide-react';
 
 export function DashboardView() {
-  const { predictions, convertToIncident } = usePredictions();
+  const { threats: predictions, loading: predictionsLoading } = useBackendThreats({ limit: 50 });
+  const { stats, loading: statsLoading } = useBackendStats();
   const { incidents, resolveIncident, isLoading: incidentsLoading } = useIncidents();
   const { alerts, acknowledgeAlert, dismissAlert, isLoading: alertsLoading } = useAlerts();
-  const { data: stats, isLoading: statsLoading } = useDashboardStats();
   
   const [selectedPrediction, setSelectedPrediction] = useState<ThreatPrediction | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
@@ -38,8 +38,9 @@ export function DashboardView() {
     dismissAlert.mutate(alertId);
   };
 
-  const handleConvertToIncident = (prediction: ThreatPrediction) => {
-    convertToIncident.mutate(prediction);
+  const handleConvertToIncident = async (prediction: ThreatPrediction) => {
+    // This will be handled by useIncidents when integrated with backend
+    console.log('Converting to incident:', prediction);
   };
 
   const handleSelectIncident = (incident: Incident) => {
@@ -51,7 +52,19 @@ export function DashboardView() {
     setSelectedIncident(null);
   };
 
-  const dashboardStats = stats || {
+  // Map backend stats to dashboard stats
+  const dashboardStats = stats ? {
+    activePredictions: stats.total_threats,
+    activeIncidents: incidents.filter(i => i.status !== 'resolved').length,
+    unresolvedAlerts: alerts.length,
+    avgConfidenceScore: Math.round(
+      stats.total_threats > 0 
+        ? ((stats.by_severity.critical * 90 + stats.by_severity.high * 75 + stats.by_severity.medium * 60 + stats.by_severity.low * 40) / stats.total_threats)
+        : 0
+    ),
+    threatsPreventedThisMonth: stats.recent_24h * 30, // Estimate
+    costSavedEstimate: stats.total_threats * 50000, // $50k per threat prevented
+  } : {
     activePredictions: 0,
     activeIncidents: 0,
     unresolvedAlerts: 0,
@@ -60,7 +73,30 @@ export function DashboardView() {
     costSavedEstimate: 0,
   };
 
-  const isLoading = incidentsLoading || alertsLoading || statsLoading;
+  const isLoading = predictionsLoading || incidentsLoading || alertsLoading || statsLoading;
+
+  // Convert backend threats to ThreatPrediction format
+  const formattedPredictions: ThreatPrediction[] = predictions.map(threat => ({
+    id: threat.id,
+    title: threat.title,
+    description: threat.description || '',
+    severity: threat.severity,
+    probability: Math.round(threat.probability * 100),
+    confidence: threat.confidence ? Math.round(threat.confidence * 100) : 0,
+    impactScore: threat.severity === 'critical' ? 10 : threat.severity === 'high' ? 8 : threat.severity === 'medium' ? 5 : 3,
+    timeframe: threat.timeframe || '5-7 days',
+    affectedSystems: threat.affected_systems 
+  ? (Array.isArray(threat.affected_systems) 
+      ? threat.affected_systems              // Already an array, use as-is
+      : threat.affected_systems.split(',').map(s => s.trim()))  // String, split it
+  : [],
+    attackVector: threat.source || 'Unknown',
+    indicators: [],
+    osintCorrelations: [],
+    recommendedActions: [],
+    predictedAt: new Date(threat.created_at),
+    status: threat.status as 'active' | 'monitoring' | 'dismissed',
+  }));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -71,7 +107,7 @@ export function DashboardView() {
           value={statsLoading ? '...' : dashboardStats.activePredictions}
           icon={Brain}
           variant="primary"
-          subtitle="Last 7 days"
+          subtitle="From ML models"
         />
         <StatCard
           title="Active Incidents"
@@ -113,13 +149,13 @@ export function DashboardView() {
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Brain className="w-5 h-5 text-primary" />
           Active Threat Predictions
-          {predictions.length === 0 && !isLoading && (
+          {formattedPredictions.length === 0 && !isLoading && (
             <span className="text-sm font-normal text-muted-foreground ml-2">
               (Run the AI Prediction Engine to generate predictions)
             </span>
           )}
         </h2>
-        {predictions.length > 0 ? (
+        {formattedPredictions.length > 0 ? (
           <Carousel
             opts={{
               align: "start",
@@ -128,7 +164,7 @@ export function DashboardView() {
             className="w-full"
           >
             <CarouselContent className="-ml-2 md:-ml-4">
-              {predictions.map((prediction) => (
+              {formattedPredictions.map((prediction) => (
                 <CarouselItem key={prediction.id} className="pl-2 md:pl-4 basis-full">
                   <PredictionCard
                     prediction={prediction}

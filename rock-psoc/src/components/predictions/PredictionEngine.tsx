@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Brain, Zap, Loader2, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import aiBrainBanner from '@/assets/ai-brain-banner.png';
-import { usePredictions } from '@/hooks/usePredictions';
+import { createThreat } from '@/services/api';
 import { Severity } from '@/types/psoc';
 
 interface PredictionEngineProps {
@@ -16,51 +16,56 @@ const predictionScenarios = [
     title: 'Potential Ransomware Campaign Targeting Organization',
     description: 'OSINT analysis indicates elevated ransomware activity in your industry sector. Pattern matching suggests high probability of targeted phishing attempts.',
     severity: 'critical' as Severity,
-    probability: 78,
-    confidence: 85,
+    probability: 0.78,
+    confidence: 0.85,
     impact: 'critical',
     timeframe: '3-5 days',
     affected_systems: ['Email Gateway', 'File Servers', 'Backup Systems'],
+    source: 'AI Prediction Engine',
   },
   {
     title: 'DDoS Attack Vector Identified',
     description: 'Network traffic analysis reveals reconnaissance patterns consistent with DDoS preparation targeting public-facing infrastructure.',
     severity: 'high' as Severity,
-    probability: 65,
-    confidence: 72,
+    probability: 0.65,
+    confidence: 0.72,
     impact: 'high',
     timeframe: '5-7 days',
     affected_systems: ['Web Gateway', 'Load Balancer', 'CDN Edge Nodes'],
+    source: 'AI Prediction Engine',
   },
   {
     title: 'Credential Stuffing Campaign Detected',
     description: 'Authentication logs show patterns indicating automated credential testing from distributed sources.',
     severity: 'high' as Severity,
-    probability: 71,
-    confidence: 80,
+    probability: 0.71,
+    confidence: 0.80,
     impact: 'high',
     timeframe: '24-48 hours',
     affected_systems: ['Authentication Service', 'User Directory', 'Customer Portal'],
+    source: 'AI Prediction Engine',
   },
   {
     title: 'SQL Injection Probes Increasing',
     description: 'Web application firewall logs indicate systematic SQL injection testing against public endpoints.',
     severity: 'medium' as Severity,
-    probability: 55,
-    confidence: 68,
+    probability: 0.55,
+    confidence: 0.68,
     impact: 'medium',
     timeframe: '7-10 days',
     affected_systems: ['Customer Portal', 'API Gateway', 'Database Cluster'],
+    source: 'AI Prediction Engine',
   },
   {
     title: 'Insider Threat Behavior Pattern',
     description: 'User behavior analytics flagged unusual data access patterns from privileged accounts during off-hours.',
     severity: 'medium' as Severity,
-    probability: 48,
-    confidence: 62,
+    probability: 0.48,
+    confidence: 0.62,
     impact: 'medium',
     timeframe: '1-2 weeks',
     affected_systems: ['Data Warehouse', 'HR Systems', 'Financial Systems'],
+    source: 'AI Prediction Engine',
   },
 ];
 
@@ -70,8 +75,6 @@ export function PredictionEngine({ onAnalysisComplete }: PredictionEngineProps) 
   const [stage, setStage] = useState('');
   const [lastAnalysis, setLastAnalysis] = useState<Date | null>(null);
   const [predictionsGenerated, setPredictionsGenerated] = useState(0);
-
-  const { createPrediction } = usePredictions();
 
   const stages = [
     'Ingesting historical data...',
@@ -83,6 +86,7 @@ export function PredictionEngine({ onAnalysisComplete }: PredictionEngineProps) 
   ];
 
   const runAnalysis = async () => {
+    console.log('🚀 runAnalysis started');
     setIsAnalyzing(true);
     setProgress(0);
 
@@ -98,12 +102,30 @@ export function PredictionEngine({ onAnalysisComplete }: PredictionEngineProps) 
     const shuffled = [...predictionScenarios].sort(() => Math.random() - 0.5);
     const selectedPredictions = shuffled.slice(0, numPredictions);
 
-    // Save predictions to database
+    console.log('📊 About to create', numPredictions, 'predictions');
+
+    // Save predictions to backend
     let successCount = 0;
     for (const prediction of selectedPredictions) {
       try {
-        await createPrediction.mutateAsync(prediction);
-        successCount++;
+        console.log('Creating prediction:', prediction);
+        const result = await createThreat({
+          title: prediction.title,
+          description: prediction.description,
+          severity: prediction.severity,
+          probability: prediction.probability,
+          confidence: prediction.confidence,
+          impact: prediction.impact,
+          timeframe: prediction.timeframe,
+          affected_systems: prediction.affected_systems,
+          source: prediction.source,
+          status: 'active',
+        });
+        
+        console.log('Created successfully:', result);
+        if (result) {
+          successCount++;
+        }
       } catch (error) {
         console.error('Failed to create prediction:', error);
       }
@@ -112,6 +134,7 @@ export function PredictionEngine({ onAnalysisComplete }: PredictionEngineProps) 
     setLastAnalysis(new Date());
     setPredictionsGenerated(successCount);
     setIsAnalyzing(false);
+    console.log('✅ Analysis complete! Created', successCount, 'predictions');
     onAnalysisComplete();
   };
 
@@ -172,7 +195,7 @@ export function PredictionEngine({ onAnalysisComplete }: PredictionEngineProps) 
               <p className="text-xs text-muted-foreground">{Math.round(progress)}% complete</p>
             </div>
           ) : (
-            <Button variant="cyber" onClick={runAnalysis} disabled={createPrediction.isPending}>
+            <Button variant="cyber" onClick={runAnalysis}>
               <Zap className="w-4 h-4 mr-2" />
               Predict Potential Incidents
             </Button>
