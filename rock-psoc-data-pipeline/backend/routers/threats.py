@@ -8,7 +8,7 @@ DELETE /api/threats/{id} - Delete threat
 """
 
 from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
+from typing import Optional, List, Union
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -33,7 +33,7 @@ class ThreatCreate(BaseModel):
     impact: Optional[str] = Field(None, description="Impact assessment")
     timeframe: Optional[str] = Field(None, description="Timeframe for threat")
     predicted_timeframe: Optional[str] = Field(None, description="Predicted timeframe")
-    affected_systems: Optional[str] = Field(None, description="Affected systems")
+    affected_systems: Optional[Union[str, List[str]]] = Field(None, description="Affected systems (string or array)")
     status: Optional[str] = Field(default="active", description="Status")
     indicators: Optional[dict] = Field(None, description="Threat indicators as JSON")
     source: str = Field(default="Manual Entry", description="Data source")

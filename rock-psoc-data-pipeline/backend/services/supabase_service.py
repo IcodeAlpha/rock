@@ -92,7 +92,18 @@ def create_threat(threat_data: Dict) -> Dict:
     """
     supabase = get_supabase_client()
     
+    print(f"[DEBUG] Received threat_data: {threat_data}")
+    
+    # Convert affected_systems from list to PostgreSQL array format if needed
+    if 'affected_systems' in threat_data and isinstance(threat_data['affected_systems'], list):
+        print(f"[DEBUG] Converting affected_systems from list to PostgreSQL array")
+        # PostgreSQL array format: {"item1", "item2", "item3"}
+        threat_data['affected_systems'] = '{' + ','.join(f'"{item}"' for item in threat_data['affected_systems']) + '}'
+        print(f"[DEBUG] Converted to: {threat_data['affected_systems']}")
+    
+    print(f"[DEBUG] About to insert into database...")
     result = supabase.table('predictions').insert(threat_data).execute()
+    print(f"[DEBUG] Insert successful!")
     
     return result.data[0]
 
