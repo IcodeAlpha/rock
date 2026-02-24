@@ -7,6 +7,7 @@ import { IncidentsList } from '@/components/dashboard/IncidentsList';
 import { IncidentDetailModal } from '@/components/dashboard/IncidentDetailModal';
 import { WeeklyThreatSummary } from '@/components/dashboard/WeeklyThreatSummary';
 import { PredictionModal } from '@/components/predictions/PredictionModal';
+import { AISecurityChat } from '@/components/chat/AISecurityChat';
 import { 
   Carousel,
   CarouselContent,
@@ -219,6 +220,11 @@ export function DashboardView() {
         onClose={() => setSelectedIncident(null)}
         onResolve={handleResolveIncident}
       />
+
+      {/* AI Security Chat */}
+<div className="col-span-full lg:col-span-2">
+  <AISecurityChat />
+</div>
     </div>
   );
 }
