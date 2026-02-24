@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Brain, Send, Loader2, Sparkles, User, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -85,11 +86,10 @@ export function AISecurityChat({ threatId }: AISecurityChatProps) {
     } catch (error) {
       console.error('Chat error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to send message');
-      
-      // Add error message to chat
+
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '❌ Sorry, I encountered an error. Please make sure the AI service is configured properly (ANTHROPIC_API_KEY set in backend .env file).',
+        content: '❌ Sorry, I encountered an error. Please make sure the AI service is configured properly (GEMINI_API_KEY set in backend .env file).',
         timestamp: new Date(),
       }]);
     } finally {
@@ -264,7 +264,20 @@ export function AISecurityChat({ threatId }: AISecurityChatProps) {
                       : 'bg-secondary'
                   )}
                 >
-                  <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  {message.role === 'assistant' ? (
+                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none
+                      prose-headings:text-foreground
+                      prose-p:text-foreground
+                      prose-strong:text-foreground
+                      prose-ul:text-foreground
+                      prose-ol:text-foreground
+                      prose-li:text-foreground
+                    ">
+                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  )}
                   <div className="text-xs mt-2 opacity-50">
                     {message.timestamp.toLocaleTimeString()}
                   </div>

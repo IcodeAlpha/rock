@@ -105,9 +105,13 @@ def get_security_context():
 
 def build_system_prompt(context: dict) -> str:
     """
-    Build system prompt with current security context
+    Build system prompt with current security context and real date/time
     """
-    prompt = f"""You are a cybersecurity AI analyst assistant for an enterprise security operations center (SOC). 
+    now = datetime.now()
+
+    prompt = f"""You are a cybersecurity AI analyst assistant for an enterprise security operations center (SOC).
+
+Current Date & Time: {now.strftime('%B %d, %Y at %I:%M %p')} UTC
 
 Your role is to:
 1. Analyze threat predictions and vulnerabilities
@@ -142,6 +146,7 @@ Guidelines:
 - Explain technical concepts in business terms when appropriate
 - If you don't have enough context, ask clarifying questions
 - Never make up threats or statistics - only use the data provided above
+- Always use the current date and time provided above, never invent dates
 """
 
     return prompt
@@ -155,7 +160,6 @@ def build_gemini_history(conversation_history: list, system_prompt: str) -> list
     history = []
     for i, msg in enumerate(conversation_history):
         role = "model" if msg.role == "assistant" else "user"
-        # Prepend system prompt to the very first user message
         if i == 0 and role == "user":
             content = f"{system_prompt}\n\n{msg.content}"
         else:
@@ -189,13 +193,10 @@ async def chat_with_ai(request: ChatRequest):
         context = get_security_context() if request.include_context else {}
         system_prompt = build_system_prompt(context)
 
-        # Build history for multi-turn conversation
         history = build_gemini_history(request.conversation_history, system_prompt)
 
-        # Start chat session with history
         chat_session = client.start_chat(history=history)
 
-        # If no history, prepend system prompt to the first user message
         if not history:
             user_message = f"{system_prompt}\n\n{request.message}"
         else:
@@ -232,6 +233,7 @@ async def generate_briefing(
 
     try:
         context = get_security_context()
+        now = datetime.now()
 
         if period == "daily":
             timeframe = "in the last 24 hours"
@@ -241,6 +243,9 @@ async def generate_briefing(
             timeframe = "in the last 30 days"
 
         briefing_prompt = f"""You are a professional cybersecurity analyst. Generate a security briefing for {timeframe}.
+
+Date: {now.strftime('%B %d, %Y')}
+Time: {now.strftime('%I:%M %p')} UTC
 
 Current situation:
 - Total threats: {context.get('total_threats', 0)}
@@ -260,6 +265,7 @@ Please provide:
 3. Recommended Actions (3-5 specific steps)
 4. Risk Assessment (overall risk level: Low/Medium/High/Critical)
 
+Always use the exact date and time provided above. Never invent or assume dates.
 Format as a professional security briefing suitable for both technical and non-technical stakeholders.
 """
 
@@ -268,7 +274,7 @@ Format as a professional security briefing suitable for both technical and non-t
         return {
             "briefing": response.text,
             "period": period,
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": now.isoformat(),
             "context": context
         }
 
@@ -297,7 +303,13 @@ async def explain_prediction(threat_id: str):
         if not threat:
             raise HTTPException(status_code=404, detail=f"Threat {threat_id} not found")
 
-        explanation_prompt = f"""You are a professional cybersecurity analyst. Explain why this threat was flagged by our ML model:
+        now = datetime.now()
+
+        explanation_prompt = f"""You are a professional cybersecurity analyst.
+
+Current Date & Time: {now.strftime('%B %d, %Y at %I:%M %p')} UTC
+
+Explain why this threat was flagged by our ML model:
 
 Title: {threat.get('title')}
 Severity: {threat.get('severity')}
