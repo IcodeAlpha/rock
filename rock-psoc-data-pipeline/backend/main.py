@@ -11,6 +11,8 @@ import uvicorn
 from backend.routers import health, threats, predictions, stats
 from backend.config import settings
 
+from backend.routers import health, threats, predictions, stats, chat
+
 # Lifespan context manager for startup/shutdown events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,6 +60,7 @@ app.include_router(health.router, prefix="/api", tags=["Health"])
 app.include_router(threats.router, prefix="/api", tags=["Threats"])
 app.include_router(predictions.router, prefix="/api", tags=["Predictions"])
 app.include_router(stats.router, prefix="/api", tags=["Statistics"])
+app.include_router(chat.router, prefix="/api", tags=["AI Chat"])
 
 # Root endpoint
 @app.get("/")
