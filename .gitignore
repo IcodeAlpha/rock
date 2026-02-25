@@ -25,3 +25,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+rock-psoc-data-pipeline/models/
+*.pkl
+*.h5
