@@ -24,7 +24,12 @@ interface PredictionModalProps {
   onConvertToIncident: (prediction: ThreatPrediction) => void;
 }
 
-export function PredictionModal({ prediction, isOpen, onClose, onConvertToIncident }: PredictionModalProps) {
+export function PredictionModal({
+  prediction,
+  isOpen,
+  onClose,
+  onConvertToIncident
+}: PredictionModalProps) {
   if (!prediction) return null;
 
   const severityConfig = {
@@ -34,7 +39,17 @@ export function PredictionModal({ prediction, isOpen, onClose, onConvertToIncide
     low: { badge: 'low' as const, color: 'text-success', bg: 'bg-success/10' },
   };
 
-  const config = severityConfig[prediction.severity];
+  // ✅ Normalize + fallback
+  const normalizedSeverity =
+    prediction?.severity?.toLowerCase?.() as keyof typeof severityConfig;
+
+  const config =
+    severityConfig[normalizedSeverity] ?? severityConfig.low;
+
+  const affectedSystems = prediction.affectedSystems ?? [];
+  const indicators = prediction.indicators ?? [];
+  const osintCorrelations = prediction.osintCorrelations ?? [];
+  const recommendedActions = prediction.recommendedActions ?? [];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -44,19 +59,26 @@ export function PredictionModal({ prediction, isOpen, onClose, onConvertToIncide
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant={config.badge} className="uppercase font-bold">
-                  {prediction.severity}
+                  {normalizedSeverity ?? 'low'}
                 </Badge>
                 <span className="text-sm text-muted-foreground font-mono">
-                  {prediction.id.toUpperCase()}
+                  {prediction.id?.toUpperCase?.() ?? 'UNKNOWN'}
                 </span>
               </div>
-              <DialogTitle className="text-xl">{prediction.title}</DialogTitle>
+              <DialogTitle className="text-xl">
+                {prediction.title ?? 'Untitled Prediction'}
+              </DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Predicted {formatDistanceToNow(prediction.predictedAt, { addSuffix: true })}
+                Predicted{' '}
+                {prediction.predictedAt
+                  ? formatDistanceToNow(prediction.predictedAt, { addSuffix: true })
+                  : 'recently'}
               </p>
             </div>
             <div className={cn("p-4 rounded-xl text-center", config.bg)}>
-              <div className={cn("text-4xl font-bold", config.color)}>{prediction.probability}%</div>
+              <div className={cn("text-4xl font-bold", config.color)}>
+                {prediction.probability ?? 0}%
+              </div>
               <div className="text-xs text-muted-foreground">Probability</div>
             </div>
           </div>
@@ -71,79 +93,61 @@ export function PredictionModal({ prediction, isOpen, onClose, onConvertToIncide
 
           <div className="overflow-y-auto max-h-[50vh] mt-4">
             <TabsContent value="overview" className="space-y-4 mt-0">
-              {/* Metrics Grid */}
               <div className="grid grid-cols-4 gap-3">
-                <div className="p-4 rounded-lg bg-secondary/50 border border-border">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                    <TrendingUp className="w-4 h-4" />
-                    <span className="text-xs">Confidence</span>
-                  </div>
-                  <div className="text-2xl font-bold">{prediction.confidence}%</div>
-                </div>
-                <div className="p-4 rounded-lg bg-secondary/50 border border-border">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                    <Target className="w-4 h-4" />
-                    <span className="text-xs">Impact Score</span>
-                  </div>
-                  <div className="text-2xl font-bold">{prediction.impactScore}/10</div>
-                </div>
-                <div className="p-4 rounded-lg bg-secondary/50 border border-border">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-xs">Timeframe</span>
-                  </div>
-                  <div className="text-2xl font-bold">{prediction.timeframe}</div>
-                </div>
-                <div className="p-4 rounded-lg bg-secondary/50 border border-border">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                    <Shield className="w-4 h-4" />
-                    <span className="text-xs">Attack Vector</span>
-                  </div>
-                  <div className="text-sm font-medium leading-tight">{prediction.attackVector}</div>
-                </div>
+                <Metric icon={<TrendingUp className="w-4 h-4" />} label="Confidence" value={`${prediction.confidence ?? 0}%`} />
+                <Metric icon={<Target className="w-4 h-4" />} label="Impact Score" value={`${prediction.impactScore ?? 0}/10`} />
+                <Metric icon={<Clock className="w-4 h-4" />} label="Timeframe" value={prediction.timeframe ?? 'N/A'} />
+                <Metric icon={<Shield className="w-4 h-4" />} label="Attack Vector" value={prediction.attackVector ?? 'Unknown'} />
               </div>
 
-              {/* Description */}
               <div className="p-4 rounded-lg bg-secondary/30 border border-border">
                 <h4 className="font-semibold mb-2">Description</h4>
-                <p className="text-sm text-muted-foreground">{prediction.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  {prediction.description ?? 'No description provided.'}
+                </p>
               </div>
 
-              {/* Affected Systems */}
               <div>
                 <h4 className="font-semibold mb-3">Affected Systems</h4>
                 <div className="flex flex-wrap gap-2">
-                  {prediction.affectedSystems.map((system, idx) => (
-                    <span key={idx} className="px-3 py-1.5 text-sm bg-secondary rounded-lg border border-border">
-                      {system}
-                    </span>
-                  ))}
+                  {affectedSystems.length > 0 ? (
+                    affectedSystems.map((system, idx) => (
+                      <span key={idx} className="px-3 py-1.5 text-sm bg-secondary rounded-lg border border-border">
+                        {system}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">None listed</span>
+                  )}
                 </div>
               </div>
 
-              {/* Indicators */}
               <div>
                 <h4 className="font-semibold mb-3">Threat Indicators</h4>
                 <div className="space-y-2">
-                  {prediction.indicators.map((indicator, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm">
-                      <AlertTriangle className="w-4 h-4 text-warning" />
-                      {indicator}
-                    </div>
-                  ))}
+                  {indicators.length > 0 ? (
+                    indicators.map((indicator, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <AlertTriangle className="w-4 h-4 text-warning" />
+                        {indicator}
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No indicators</span>
+                  )}
                 </div>
               </div>
             </TabsContent>
 
             <TabsContent value="analysis" className="space-y-4 mt-0">
-              {/* OSINT Correlations */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Globe className="w-5 h-5 text-primary" />
                   <h4 className="font-semibold">OSINT Correlations</h4>
                 </div>
-                <div className="space-y-3">
-                  {prediction.osintCorrelations.map((correlation, idx) => (
+
+                {osintCorrelations.length > 0 ? (
+                  osintCorrelations.map((correlation, idx) => (
                     <div key={idx} className="p-4 rounded-lg bg-secondary/30 border border-border">
                       <div className="flex items-start justify-between">
                         <div>
@@ -154,28 +158,26 @@ export function PredictionModal({ prediction, isOpen, onClose, onConvertToIncide
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">{correlation.indicator}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Last seen: {formatDistanceToNow(correlation.lastSeen, { addSuffix: true })}
-                          </p>
                         </div>
                         <div className="text-right">
-                          <div className="text-xl font-bold text-primary">{correlation.matchScore}%</div>
+                          <div className="text-xl font-bold text-primary">
+                            {correlation.matchScore ?? 0}%
+                          </div>
                           <div className="text-xs text-muted-foreground">Match Score</div>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No OSINT correlations</span>
+                )}
               </div>
             </TabsContent>
 
             <TabsContent value="actions" className="space-y-4 mt-0">
-              <div className="space-y-3">
-                {prediction.recommendedActions.map((action, idx) => (
-                  <div 
-                    key={idx} 
-                    className="flex items-center gap-3 p-4 rounded-lg bg-secondary/30 border border-border"
-                  >
+              {recommendedActions.length > 0 ? (
+                recommendedActions.map((action, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-4 rounded-lg bg-secondary/30 border border-border">
                     <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
                       {idx + 1}
                     </div>
@@ -185,20 +187,21 @@ export function PredictionModal({ prediction, isOpen, onClose, onConvertToIncide
                       Mark Done
                     </Button>
                   </div>
-                ))}
-              </div>
+                ))
+              ) : (
+                <span className="text-sm text-muted-foreground">No recommended actions</span>
+              )}
             </TabsContent>
           </div>
         </Tabs>
 
-        {/* Footer Actions */}
         <div className="flex items-center justify-between pt-4 border-t border-border">
           <Button variant="outline" onClick={onClose}>
             <XCircle className="w-4 h-4 mr-2" />
             Close
           </Button>
-          <Button 
-            variant="cyber" 
+          <Button
+            variant="cyber"
             onClick={() => {
               onConvertToIncident(prediction);
               onClose();
@@ -211,5 +214,18 @@ export function PredictionModal({ prediction, isOpen, onClose, onConvertToIncide
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* Small helper for cleaner metric UI */
+function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="p-4 rounded-lg bg-secondary/50 border border-border">
+      <div className="flex items-center gap-2 text-muted-foreground mb-2">
+        {icon}
+        <span className="text-xs">{label}</span>
+      </div>
+      <div className="text-2xl font-bold">{value}</div>
+    </div>
   );
 }
