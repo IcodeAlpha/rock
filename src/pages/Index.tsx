@@ -19,7 +19,7 @@ const Index = () => {
 
   const renderView = () => {
     switch (activeView) {
-      case 'dashboard': return <DashboardView />;
+      case 'dashboard': return <DashboardView onViewChange={setActiveView} />;
       case 'predictions': return <PredictionsView />;
       case 'incidents': return <IncidentsView />;
       case 'alerts': return <AlertsView />;
@@ -28,7 +28,7 @@ const Index = () => {
       case 'reports': return <ReportsView />;
       case 'settings': return <SettingsView />;
       case 'team': return <TeamView />;
-      default: return <DashboardView />;
+      default: return <DashboardView onViewChange={setActiveView} />;
     }
   };
 

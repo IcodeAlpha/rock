@@ -7,6 +7,8 @@ import { IncidentsList } from '@/components/dashboard/IncidentsList';
 import { IncidentDetailModal } from '@/components/dashboard/IncidentDetailModal';
 import { WeeklyThreatSummary } from '@/components/dashboard/WeeklyThreatSummary';
 import { PredictionModal } from '@/components/predictions/PredictionModal';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { 
   Carousel,
   CarouselContent,
@@ -19,9 +21,13 @@ import { useIncidents } from '@/hooks/useIncidents';
 import { useAlerts } from '@/hooks/useAlerts';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { ThreatPrediction, Incident } from '@/types/psoc';
-import { Brain, AlertTriangle, Bell, TrendingUp, Shield, DollarSign, Loader2 } from 'lucide-react';
+import { Brain, AlertTriangle, Bell, TrendingUp, Shield, DollarSign, Loader2, Activity, ArrowRight } from 'lucide-react';
 
-export function DashboardView() {
+interface DashboardViewProps {
+  onViewChange?: (view: string) => void;
+}
+
+export function DashboardView({ onViewChange }: DashboardViewProps) {
   const { predictions, convertToIncident } = usePredictions();
   const { incidents, resolveIncident, isLoading: incidentsLoading } = useIncidents();
   const { alerts, acknowledgeAlert, dismissAlert, isLoading: alertsLoading } = useAlerts();
@@ -164,6 +170,46 @@ export function DashboardView() {
         />
         <WeeklyThreatSummary />
       </div>
+
+      {/* Model Performance Card - Full Width */}
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-primary" />
+            Model Performance Dashboard
+          </CardTitle>
+          <CardDescription>
+            View real-time metrics, accuracy trends, and per-model predictions
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Intrusion Detection</p>
+              <p className="text-2xl font-bold">82.8%</p>
+              <p className="text-xs text-muted-foreground">UNSW-NB15 v2.0 • 10 attack types</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Phishing Detection</p>
+              <p className="text-2xl font-bold">92.3%</p>
+              <p className="text-xs text-muted-foreground">Custom Dataset v1.0</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Vulnerability Scoring</p>
+              <p className="text-2xl font-bold">MAE: 8.34</p>
+              <p className="text-xs text-muted-foreground">CISA KEV • R² = 0.78</p>
+            </div>
+          </div>
+          <Button 
+            onClick={() => onViewChange?.('performance')}
+            className="w-full md:w-auto"
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            Open Performance Dashboard
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Threat Activity Timeline - Full Width */}
       <ThreatChart />

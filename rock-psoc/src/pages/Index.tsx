@@ -10,6 +10,7 @@ import { ProtocolsView } from '@/views/ProtocolsView';
 import { ReportsView } from '@/views/ReportsView';
 import { SettingsView } from '@/views/SettingsView';
 import { TeamView } from '@/views/TeamView';
+import { PerformanceDashboard } from '@/components/performance/PerformanceDashboard';
 import { cn } from '@/lib/utils';
 import { Helmet } from 'react-helmet';
 
@@ -19,16 +20,17 @@ const Index = () => {
 
   const renderView = () => {
     switch (activeView) {
-      case 'dashboard': return <DashboardView />;
+      case 'dashboard': return <DashboardView onViewChange={setActiveView} />;
       case 'predictions': return <PredictionsView />;
       case 'incidents': return <IncidentsView />;
       case 'alerts': return <AlertsView />;
       case 'osint': return <OSINTView />;
       case 'response': return <ProtocolsView />;
       case 'reports': return <ReportsView />;
+      case 'performance': return <PerformanceDashboard />;
       case 'settings': return <SettingsView />;
       case 'team': return <TeamView />;
-      default: return <DashboardView />;
+      default: return <DashboardView onViewChange={setActiveView} />;
     }
   };
 
