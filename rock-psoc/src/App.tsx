@@ -25,18 +25,11 @@ const App = () => (
         <AuthProvider>
           <OrganizationProvider>
             <Routes>
-              {/* Public landing page - route: / */}
               <Route path="/" element={<Landing />} />
-
-              {/* Public auth page - route: /auth */}
               <Route path="/auth" element={<Auth />} />
-
               <Route path="/accept-invite" element={<AcceptInvitePage />} />
-
-               <Route path="/privacy" element={<Privacy />} />  {/* NEW */}
-              <Route path="/terms" element={<Terms />} />      {/* NEW */}
-
-              {/* Protected app route - route: /app */}
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
               <Route
                 path="/app"
                 element={
@@ -45,8 +38,6 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-
-              {/* Catch all 404 - route: /* */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </OrganizationProvider>

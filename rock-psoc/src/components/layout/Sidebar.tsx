@@ -33,6 +33,7 @@ const navItems: NavItem[] = [
   { id: 'alerts', label: 'Alerts', icon: Bell, badge: 2 },
   { id: 'osint', label: 'OSINT Recon', icon: Globe },
   { id: 'reports', label: 'Reports', icon: Activity },
+  { id: 'performance', label: 'Performance', icon: Database },
   { id: 'team', label: 'Team', icon: Users },
 ];
 
