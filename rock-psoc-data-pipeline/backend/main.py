@@ -8,10 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 
-from backend.routers import health, threats, predictions, stats
+from backend.routers import health, threats, predictions, stats, chat, performance
 from backend.config import settings
-
-from backend.routers import health, threats, predictions, stats, chat
 
 # Lifespan context manager for startup/shutdown events
 @asynccontextmanager
@@ -61,6 +59,7 @@ app.include_router(threats.router, prefix="/api", tags=["Threats"])
 app.include_router(predictions.router, prefix="/api", tags=["Predictions"])
 app.include_router(stats.router, prefix="/api", tags=["Statistics"])
 app.include_router(chat.router, prefix="/api", tags=["AI Chat"])
+app.include_router(performance.router, prefix="/api/performance", tags=["Performance"])
 
 # Root endpoint
 @app.get("/")
