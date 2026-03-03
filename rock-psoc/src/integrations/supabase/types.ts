@@ -456,6 +456,139 @@ export type Database = {
         }
         Relationships: []
       }
+      protocol_comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          step_id: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          step_id: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          step_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_comments_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      protocol_executions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          incident_id: string | null
+          level: number
+          organization_id: string
+          protocol_name: string
+          started_at: string
+          started_by: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          incident_id?: string | null
+          level: number
+          organization_id: string
+          protocol_name: string
+          started_at?: string
+          started_by: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          incident_id?: string | null
+          level?: number
+          organization_id?: string
+          protocol_name?: string
+          started_at?: string
+          started_by?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_executions_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "incidents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_executions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      protocol_steps: {
+        Row: {
+          action: string
+          assigned_role: string | null
+          assigned_to: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          execution_id: string
+          id: string
+          status: string
+          step_index: number
+        }
+        Insert: {
+          action: string
+          assigned_role?: string | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          execution_id: string
+          id?: string
+          status?: string
+          step_index: number
+        }
+        Update: {
+          action?: string
+          assigned_role?: string | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          execution_id?: string
+          id?: string
+          status?: string
+          step_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_steps_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_executions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           content: string | null
