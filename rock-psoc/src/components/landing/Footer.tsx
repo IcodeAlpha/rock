@@ -45,7 +45,7 @@ export function Footer() {
               <span className="text-xl font-bold text-white">Rock PSOC</span>
             </div>
             <p className="text-sm text-slate-500 mb-6 max-w-xs">
-              AI-powered predictive security operations. See threats before they
+              AI-powered predictive security operations. Detect threats before they
               strike.
             </p>
             <div className="flex items-center gap-4">

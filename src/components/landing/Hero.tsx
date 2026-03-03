@@ -93,7 +93,7 @@ export function Hero() {
           transition={{ duration: 0.7, delay: 0.1 }}
           className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6"
         >
-          <span className="text-white">See Threats</span>
+          <span className="text-white">Detect Threats</span>
           <br />
           <span className="bg-gradient-to-r from-cyan-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">
             Before They Strike

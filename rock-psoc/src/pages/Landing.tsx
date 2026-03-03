@@ -22,7 +22,7 @@ function Landing() {
         <title>Rock PSOC - Predictive Security Operations Center</title>
         <meta
           name="description"
-          content="AI-powered threat prediction engine. See threats before they strike with 5-7 day advance warning."
+          content="AI-powered threat prediction engine. Detect threats before they strike with 5-7 day advance warning."
         />
         <meta
           name="keywords"

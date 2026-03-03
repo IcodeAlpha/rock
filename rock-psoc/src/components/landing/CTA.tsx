@@ -41,7 +41,7 @@ export function CTA() {
           {/* Subheadline */}
           <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-10">
             Join the security teams who've moved from reactive firefighting to
-            proactive defense. See threats before they materialize and protect
+            proactive defense. Detect threats before they materialize and protect
             what matters most.
           </p>
 
