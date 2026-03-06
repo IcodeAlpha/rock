@@ -147,10 +147,10 @@ export function AcceptInvitePage() {
         if (memberError) throw memberError;
       }
 
-      // Mark invitation accepted
+      // Mark invitation accepted and stamp the time
       await supabase
         .from('invitations')
-        .update({ status: 'accepted' })
+        .update({ status: 'accepted', accepted_at: new Date().toISOString() })
         .eq('id', target.id);
 
       setPageState('success');
