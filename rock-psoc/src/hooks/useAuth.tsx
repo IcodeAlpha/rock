@@ -94,13 +94,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (authError) return { error: authError };
 
-      // v1: require both user AND session before proceeding
       if (!authData.user || !authData.session) {
         return { error: new Error('Failed to create user session') };
       }
 
-      // STEP 2: Wait for the DB profile trigger to fire
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // STEP 2: Explicitly set the session so the Supabase client
+      // sends the correct JWT on all subsequent requests
+      await supabase.auth.setSession({
+        access_token: authData.session.access_token,
+        refresh_token: authData.session.refresh_token,
+      });
+
+      // Give the session a moment to apply
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // STEP 3: Create the organization with a unique slug
       const orgSlug = orgName
