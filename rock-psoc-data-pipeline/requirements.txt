@@ -28,3 +28,4 @@ uvicorn[standard]
 pydantic
 pydantic-settings
 httpx
+google-generativeai
