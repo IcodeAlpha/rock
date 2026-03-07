@@ -47,6 +47,8 @@ app.add_middleware(
         "http://127.0.0.1:8080",
         "http://localhost:5173",      # Vite dev server
         "http://127.0.0.1:5173",
+        "https://rock-production-585c.up.railway.app",   #deployed backend
+        "https://rock-beryl-two.vercel.app"              #deployed frontend
     ],
     allow_credentials=True,
     allow_methods=["*"],
