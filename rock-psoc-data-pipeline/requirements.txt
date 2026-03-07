@@ -11,9 +11,9 @@ imbalanced-learn
 joblib
 
 # Deep Learning - Neural Networks ✅ NEW
-tensorflow
-keras
-torch  # PyTorch alternative
+# tensorflow
+# keras
+# torch  # PyTorch alternative
 
 # Visualization & Evaluation
 matplotlib
@@ -21,4 +21,10 @@ seaborn
 plotly
 
 # Model Tracking (Optional but recommended)
-mlflow
+# mlflow
+
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+httpx
