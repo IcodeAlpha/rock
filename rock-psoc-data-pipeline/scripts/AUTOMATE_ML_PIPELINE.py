@@ -322,7 +322,7 @@ Examples:
     parser.add_argument('--skip-cicids', action='store_true',
                        help='Skip CICIDS2017 (use existing NSL-KDD)')
     parser.add_argument('--quick', action='store_true',
-                       help='Quick mode (50% data, faster training)')
+                       help='Quick mode (50pct data, faster training)')
     
     args = parser.parse_args()
     
